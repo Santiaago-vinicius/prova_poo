@@ -32,6 +32,7 @@ class Perfil { // letra a (q1)
     adicionarPostagem(postagem: Postagem): void {
         this._postagens.push(postagem);
     }
+
     editarNome(novoNome: string): void {
         this._nome = novoNome;
     }
@@ -175,7 +176,7 @@ class RepositorioDePostagens { // questão 4
         }
     }
 
-    consultar(id?: number, texto?: string, hashtag?: string, perfil?: Perfil): Postagem[] { // letra c (q4)
+    consultar(id?: number, texto?: string, hashtag?: string, perfil?: Perfil): Postagem[] | PostagemAvancada[] {
         if (id === undefined && texto === undefined && hashtag === undefined && perfil === undefined) {
             return this._postagens; // Retorna todas as postagens se nenhum critério é fornecido.
         }
@@ -198,16 +199,18 @@ class RepositorioDePostagens { // questão 4
     
             return atendeCriterios;
         });
-    } 
+    }    
+    
 
     verificarSubstring(substring: string, texto: string): boolean {
-        for (let i = 0; i <= texto.length - substring.length; i++) {
+        for (let i = 0; i < texto.length - substring.length + 1; i++) {
             if (texto.substring(i, i + substring.length) === substring) {
                 return true;
             }
         }
         return false;
     }
+    
 
 }
 
@@ -221,43 +224,35 @@ class RedeSocial { // questão 5
     incluirPerfil(perfil: Perfil): void {
         if (!perfil.id || !perfil.nome || !perfil.email) {
             console.log("Todos os atributos do perfil devem estar preenchidos.");
-            return;
         }
 
         const perfilExistente = this._repositorioDePerfis.consultar(perfil.id, perfil.nome, perfil.email);
         if (perfilExistente) {
             console.log("Já existe um perfil com o mesmo ID, nome ou e-mail.");
-            return;
         }
 
         this._repositorioDePerfis.incluir(perfil);
         console.log("Perfil incluído com sucesso.");
     }
 
-    consultarPerfil(id: number, nome: string, email: string): Perfil | null {
+    consultarPerfil(id?: number, nome?: string, email?: string): Perfil | null {
         return this._repositorioDePerfis.consultar(id, nome, email);
     }
 
     incluirPostagem(postagem: Postagem): void {
         if (!postagem.id || !postagem.texto || !postagem.perfil) {
             console.log("Todos os atributos da postagem devem estar preenchidos.");
-            return;
         }
-
+    
         if (postagem instanceof PostagemAvancada && (!postagem.hashtags || postagem.hashtags.length === 0)) {
             console.log("A postagem avançada deve ter pelo menos uma hashtag.");
-            return;
         }
-
-        const postagemExistente = this._repositorioDePostagens.consultar(postagem.id);
-        if (postagemExistente) {
-            console.log("Já existe uma postagem com o mesmo ID, texto e perfil.");
-            return;
-        }
-
+    
         this._repositorioDePostagens.incluir(postagem);
         console.log("Postagem incluída com sucesso.");
     }
+    
+    
 
     consultarPostagens(id?: number, texto?: string, hashtag?: string, perfil?: Perfil): Postagem[] {
         return this._repositorioDePostagens.consultar(id, texto, hashtag, perfil);
@@ -284,6 +279,7 @@ class RedeSocial { // questão 5
             console.log(`Postagem com ID ${idPostagem} não encontrada.`);
         }
     }
+
     listarTodosOsPerfis(): void {
         const perfis = this._repositorioDePerfis.getPerfis(); 
         if (perfis.length === 0) {
@@ -295,8 +291,6 @@ class RedeSocial { // questão 5
             }
         }
     }
-    
-    
 
     decrementarVisualizacoes(postagem: PostagemAvancada): void {
         if (postagem.visualizacoesRestantes <= 0) {
@@ -308,17 +302,15 @@ class RedeSocial { // questão 5
         console.log("Visualização decrementada com sucesso.");
     }
 
-    exibirPostagensPorPerfil(id: number): Postagem[] {
-        const postagensDoPerfil = this._repositorioDePostagens.consultar(id);
-
-        for (const postagem of postagensDoPerfil) {
-            if (postagem instanceof PostagemAvancada) {
-                this.decrementarVisualizacoes(postagem);
-            }
+    exibirPostagensPorPerfil(idPerfil: number): void {
+        const perfilConsultado = this.consultarPerfil(idPerfil);
+    
+        if (perfilConsultado) {
+            const postagensDoPerfil = this.consultarPostagens(undefined, undefined, undefined, perfilConsultado);
+            this.exibirPostagens(postagensDoPerfil);
+        } else {
+            console.log("Perfil não encontrado.");
         }
-
-        const postagensExibiveis = postagensDoPerfil.filter(postagem => postagem.data <= new Date());
-        return postagensExibiveis;
     }
     
     
@@ -338,7 +330,7 @@ class RedeSocial { // questão 5
                     console.log(`Hashtags: ${postagem.hashtags.join(", ")}`);
                     console.log(`Visualizações Restantes: ${postagem.visualizacoesRestantes}`);
                 }
-                console.log("------");
+                console.log("-----------------------");
             }
         }
     }
@@ -357,6 +349,9 @@ class RedeSocial { // questão 5
     }
     
 }
+
+
+
 class App { // questão 6
     private _redeSocial: RedeSocial;
 
@@ -372,38 +367,72 @@ class App { // questão 6
             }
         });
     }
+
     editarPerfil(idPerfil: number): void {
-        const perfil = this._redeSocial.consultarPerfil(idPerfil, '', '');
+        const perfil = this._redeSocial.consultarPerfil(idPerfil);
         if (perfil) {
-            const novoNome = input("Digite o novo nome: ");
-            const novoEmail = input("Digite o novo email: ");
-            perfil.editarNome(novoNome);
-            perfil.editarEmail(novoEmail);
-        }
+            console.log("Perfil encontrado. Você pode editar o nome e/ou o e-mail.");
+
+            // Pergunte ao usuário qual campo deseja editar
+            const opcao = input("Digite 'N' para editar o nome ou 'E' para editar o e-mail (ou qualquer outra tecla para sair): ");
+            
+            if (opcao === 'N') {
+                // Edite o nome
+                const novoNome = input("Digite o novo nome: ");
+                perfil.editarNome(novoNome);
+                console.log("Nome editado com sucesso.");
+            } else if (opcao === 'E') {
+                // Edite o e-mail
+                const novoEmail = input("Digite o novo e-mail: ");
+                perfil.editarEmail(novoEmail);
+                console.log("E-mail editado com sucesso.");
+            } else {
+                console.log("Edição de perfil cancelada.");
+            }
+            } else {
+                console.log("Perfil não encontrado.");
+            }
     }
+
     consultarPostagensPorData(dataConsulta: Date): Postagem[] {
-        return this._redeSocial.consultarPostagens(undefined, undefined, undefined, undefined)
-            .filter(postagem => postagem.data.toDateString() === dataConsulta.toDateString());
+        return this._redeSocial.consultarPostagens().filter(postagem => {
+            // Use as funções getUTCFullYear, getUTCMonth e getUTCDate para obter o ano, mês e dia da postagem.
+            const postagemDate = postagem.data;
+        return (
+                    postagemDate.getUTCFullYear() === dataConsulta.getUTCFullYear() &&
+                    postagemDate.getUTCMonth() === dataConsulta.getUTCMonth() &&
+                    postagemDate.getUTCDate() === dataConsulta.getUTCDate()
+                );
+            });
     }
+
     listarTodosOsPerfis(): void {
         this._redeSocial.listarTodosOsPerfis();
     }
     
-    
-    
-    
-
     //questão 8
-    exibirPostagensPopulares() : Postagem[]{ // letra a (q8)
+    exibirPostagensPopulares(): Postagem[] {
         const postagens = this._redeSocial.consultarPostagens();
-        const postagensPopulares = postagens.filter(postagem => postagem instanceof PostagemAvancada && postagem.ehPopular() && postagem.visualizacoesRestantes > 0);
-        return postagensPopulares
+        let postagemPopular: Postagem[] = [];
+        let maxVisualizacoes = 0;
+
+        for (const postagem of postagens) {
+            if (postagem instanceof PostagemAvancada && postagem.ehPopular() && postagem.visualizacoesRestantes > maxVisualizacoes) {
+                postagemPopular = [postagem];
+                maxVisualizacoes = postagem.visualizacoesRestantes;
+            } else if (postagem instanceof PostagemAvancada && postagem.ehPopular() && postagem.visualizacoesRestantes === maxVisualizacoes) {
+                postagemPopular.push(postagem);
+            }
+        }
+
+        return postagemPopular;
     }
+
     // letra b (q8)
     exibirHashtagsPopulares(): string[] {
         const postagens = this._redeSocial.consultarPostagens();
         const hashtagsContagem = new Map<string, number>();
-    
+
         for (const postagem of postagens) {
             if (postagem instanceof PostagemAvancada) {
                 for (const hashtag of postagem.hashtags) {
@@ -415,19 +444,24 @@ class App { // questão 6
                 }
             }
         }
-    
-        const hashtagsPopulares = Array.from(hashtagsContagem.entries())
-            .sort((a, b) => b[1] - a[1])
-            .map(entry => entry[0]);
-    
+
+        const hashtagsPopulares: string[] = [];
+        let maxRepeticoes = 0;
+
+        hashtagsContagem.forEach((repeticoes, hashtag) => {
+            if (repeticoes > maxRepeticoes) {
+                hashtagsPopulares.length = 0; // Limpar o array se encontrarmos uma hashtag mais popular
+                hashtagsPopulares.push(hashtag);
+                maxRepeticoes = repeticoes;
+            } else if (repeticoes === maxRepeticoes) {
+                hashtagsPopulares.push(hashtag);
+            }
+        });
+
         return hashtagsPopulares;
     }
 
     //testando os métodos da questão 8
-
-    
-
-
 
     exibirMenu(): void {
         let escolha: number;
@@ -438,7 +472,7 @@ class App { // questão 6
             console.log("2. Consultar Perfil");
             console.log("3. Incluir Postagem");
             console.log("4. Consultar Postagens");
-            console.log("5. Consultar Postagens por Hashtag");
+            console.log("5. Consultar Postagens por perfil");
             console.log("6. Curtir Postagem");
             console.log("7. Descurtir Postagem");
             console.log("8. Decrementar Visualizações");
@@ -461,12 +495,11 @@ class App { // questão 6
 
                 const perfil = new Perfil(id, nome, email);
                 this._redeSocial.incluirPerfil(perfil);
-                console.log("Perfil incluído com sucesso.");
             } else if (escolha === 2) 
             {
-                // Lógica para consultar perfil
+                // Não encontra perfil
                 const id = parseInt(input("Digite o ID do perfil: "))
-                const perfilConsultado = this._redeSocial.consultarPerfil(id, '', '')
+                const perfilConsultado = this._redeSocial.consultarPerfil(id)
                 if (perfilConsultado) {
                     console.log(`ID: ${perfilConsultado.id}, Nome: ${perfilConsultado.nome}, Email: ${perfilConsultado.email}`)
                 } else {
@@ -474,17 +507,17 @@ class App { // questão 6
                 }
             } else if (escolha === 3) 
             {
+                //não encontra perfil
                 const idPostagem = parseInt(input("Digite o ID da postagem: "))
                 const texto = input("Digite o texto da postagem: ")
                 const idPerfil = parseInt(input("Digite o ID do perfil da postagem: "))
                 const hashtags = input("Digite as hashtags da postagem separadas por vírgula: ").split(",")
                 const visualizacoesRestantes = parseInt(input("Digite o número de visualizações restantes da postagem: "))
-                const perfilPostagem = this._redeSocial.consultarPerfil(idPerfil, "", "")
+                const perfilPostagem = this._redeSocial.consultarPerfil(idPerfil)
                 if (perfilPostagem) {
                     const data = new Date() // Obtém a data e hora atual
                     const postagem = new PostagemAvancada(idPostagem, texto, perfilPostagem,hashtags, visualizacoesRestantes, data)
                     this._redeSocial.incluirPostagem(postagem)
-                    console.log("Postagem incluída com sucesso.")
                 } else {
                     console.log("Perfil não encontrado. Não foi possível incluir a postagem.")
                 }
@@ -494,15 +527,21 @@ class App { // questão 6
                 this._redeSocial.exibirPostagens(postagens);
             } else if (escolha === 5) 
             {
+                const idPerfil = parseInt(input("Digite o ID do perfil para exibir postagens: "));
+                this._redeSocial.exibirPostagensPorPerfil(idPerfil);
+            } else if (escolha === 6) 
+            {
                 const idPostagem = parseInt(input("Digite o ID da postagem a ser curtida: "));
                 this._redeSocial.curtir(idPostagem);
                 console.log("Postagem curtida com sucesso.");
-            } else if (escolha === 6) 
+                
+            } else if (escolha === 7) 
             {
                 const idPostagem = parseInt(input("Digite o ID da postagem para descurtir: "));
                 this._redeSocial.descurtir(idPostagem);
                 console.log("Postagem descurtida com sucesso.");
-            } else if (escolha === 7) 
+                
+            } else if (escolha === 8) 
             {
                 const idPostagem = parseInt(input("Digite o ID da postagem para decrementar visualizações: "));
                 const postagens = this._redeSocial.consultarPostagens(idPostagem);
@@ -514,10 +553,6 @@ class App { // questão 6
                 } else {
                     console.log("Postagem não encontrada ou não é uma postagem avançada.");
                 }
-            } else if (escolha === 8) 
-            {
-                const idPerfil = parseInt(input("Digite o ID do perfil para exibir postagens: "));
-                this._redeSocial.exibirPostagensPorPerfil(idPerfil);
             } else if (escolha === 9) 
             {
                 const hashtagExibir = input("Digite a hashtag para exibir postagens: ");
